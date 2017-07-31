@@ -1,0 +1,130 @@
+package com.sitemap.railwaylocation.db;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+
+import com.sitemap.railwaylocation.model.GpsModel;
+import com.sitemap.railwaylocation.model.StepEntity;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Date : 2017/3/24
+ * To do : 定位数据保存
+ */
+
+public class LocationDataDao {
+    private DBOpenHelper locationHelper;
+    private SQLiteDatabase locationDb;
+    private String TABLE = "location";
+
+    public LocationDataDao(Context context) {
+        locationHelper = new DBOpenHelper(context);
+    }
+
+    /**
+     * 添加一条新记录
+     *
+     * @param model
+     */
+    public void addNewData(GpsModel model) {
+        locationDb = locationHelper.getReadableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put("lat", model.getLat());
+        values.put("lng",  model.getLng());
+        values.put("time",  model.getTime());
+
+        locationDb.insert(TABLE, null, values);
+        locationDb.close();
+    }
+
+    /**
+     * 根据日期查询记录
+     *
+     * @param curDate
+     * @return
+     */
+    public GpsModel getCurDataByDate(String curDate) {
+        locationDb = locationHelper.getReadableDatabase();
+        GpsModel model = null;
+        Cursor cursor = locationDb.query(TABLE, null, null, null, null, null, null);
+        while (cursor.moveToNext()) {
+            String date = cursor.getString(cursor.getColumnIndexOrThrow("time"));
+            if (curDate.equals(date)) {
+                String lat = cursor.getString(cursor.getColumnIndexOrThrow("lat"));
+                String lng = cursor.getString(cursor.getColumnIndexOrThrow("lng"));
+                model.setLat(lat);
+                model.setLng(lng);
+                model.setTime(date);
+                //跳出循环
+                break;
+            }
+        }
+        //关闭
+        locationDb.close();
+        cursor.close();
+        return model;
+    }
+
+    /**
+     * 查询所有的记录
+     *
+     * @return
+     */
+    public List<GpsModel> getAllDatas() {
+        List<GpsModel> dataList = new ArrayList<>();
+        locationDb = locationHelper.getReadableDatabase();
+        Cursor cursor = locationDb.rawQuery("select * from location", null);
+
+        while (cursor.moveToNext()) {
+            String lat = cursor.getString(cursor.getColumnIndex("lat"));
+            String lng = cursor.getString(cursor.getColumnIndex("lng"));
+            String time = cursor.getString(cursor.getColumnIndex("time"));
+            GpsModel entity = new GpsModel();
+            entity.setLat(lat);
+            entity.setLng(lng);
+            entity.setTime(time);
+            dataList.add(entity);
+        }
+
+        //关闭数据库
+        locationDb.close();
+        cursor.close();
+        return dataList;
+    }
+
+    /**
+     * 更新数据
+     * @param model
+     */
+    public void updateCurData(GpsModel model) {
+        locationDb = locationHelper.getReadableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put("lat", model.getLat());
+        values.put("lng",  model.getLng());
+        values.put("time",  model.getTime());
+
+        locationDb.update(TABLE, values, "time=?", new String[]{model.getTime()});
+
+        locationDb.close();
+    }
+
+
+    /**
+     * 删除指定日期的记录
+     *
+     * @param curDate
+     */
+    public void deleteCurData(String curDate) {
+        locationDb = locationHelper.getReadableDatabase();
+
+        if (locationDb.isOpen())
+            locationDb.delete(TABLE, "time", new String[]{curDate});
+        locationDb.close();
+    }
+}

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.sitemap.railwaylocation">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- 本地相册/相机权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <uses-feature android:name="android.hardware.camera" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.hardware.camera.autofocus" />
+
+    <!-- gps -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!--计歩-->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
+    <uses-feature android:name="android.hardware.sensor.accelerometer" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
+
+    <uses-feature
+        android:name="android.hardware.sensor.stepcounter"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.sensor.stepdetector"
+        android:required="true" />
+
+    <application
+        android:name=".application.MyApplication"
+        android:allowBackup="true"
+        android:icon="@drawable/icon_03"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- 第三方百度定位AK -->
+        <meta-data
+            android:name="com.baidu.lbsapi.API_KEY"
+            android:value="5pQWQNkBpAwi9Rg5VF8S0mkZay85dsmm" />
+        <!--
+        KEY:
+        chenmeng 5pQWQNkBpAwi9Rg5VF8S0mkZay85dsmm
+        -->
+
+        <service
+            android:name=".activity.StepService"
+            android:priority="1000"
+            >
+            <intent-filter>
+                <!-- 系统启动完成后会调用-->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.MEDIA_MOUNTED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.intent.action.ACTION_TIME_TICK" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".activity.MainActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="com.app2.activity" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".activity.LoginActivity" />
+        <activity android:name=".activity.SplashActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".activity.PictureActivity"
+            />
+        <activity android:name=".activity.NotificationUpdateActivity"
+            android:label="更新下载"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@style/updateDialog"
+            />
+        <service
+            android:name=".activity.DownloadService"
+            android:label="下载" >
+        </service>
+
+        <service
+            android:name=".activity.LocationService"
+            android:priority="1000"
+            >
+            <intent-filter>
+                <!-- 系统启动完成后会调用-->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.MEDIA_MOUNTED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.intent.action.ACTION_TIME_TICK" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,621 @@
+package com.sitemap.railwaylocation.activity;
+
+import android.Manifest;
+import android.annotation.TargetApi;
+import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.PowerManager;
+import android.os.RemoteException;
+import android.provider.Settings;
+import android.text.TextUtils;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.PopupWindow;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.alibaba.fastjson.JSON;
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
+import com.baidu.mapapi.model.LatLng;
+import com.sitemap.railwaylocation.R;
+import com.sitemap.railwaylocation.application.MyApplication;
+import com.sitemap.railwaylocation.config.RequestCode;
+import com.sitemap.railwaylocation.config.WebUrlConfig;
+import com.sitemap.railwaylocation.http.HttpUtil;
+import com.sitemap.railwaylocation.model.GpsModel;
+import com.sitemap.railwaylocation.model.ResultModel;
+import com.sitemap.railwaylocation.util.DateUtil;
+import com.sitemap.railwaylocation.util.FileNames;
+import com.sitemap.railwaylocation.util.GpsUtil;
+import com.sitemap.railwaylocation.util.ImageUtil;
+import com.sitemap.railwaylocation.util.LocationService;
+import com.sitemap.railwaylocation.util.MapUtil;
+import com.sitemap.railwaylocation.util.ParserUtil;
+import com.sitemap.railwaylocation.util.PreferencesUtil;
+import com.sitemap.railwaylocation.util.StepCountCheckUtil;
+import com.sitemap.railwaylocation.util.SystemFunUtil;
+import com.sitemap.railwaylocation.util.ToastUtil;
+import com.sitemap.railwaylocation.view.RoundProgressDialog;
+
+import org.xutils.common.Callback;
+import org.xutils.http.RequestParams;
+import org.xutils.view.annotation.ContentView;
+import org.xutils.view.annotation.ViewInject;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+
+/**
+ * 首页
+ * created by chenmeng on 2017/6/6
+ */
+@ContentView(R.layout.activity_main)
+public class MainActivity extends BaseActivity implements View.OnClickListener {
+    private MainActivity mContext;//本类
+    private long exitTime = 0;//退出的时间
+    private HttpUtil http;//网络请求
+    private RoundProgressDialog progressDialog;//加载条
+    @ViewInject(R.id.bmapView)
+    private MapView mMapView;//地图视图
+    private LatLng latLng;//点
+    private MapUtil mapUtil;//地图工具
+    private String permissionInfo;// 定位权限
+    private LocationService locationService;
+    private List<GpsModel> mGpsList = new ArrayList<>();//采集数据
+    private int count = 0;//次数
+    private double point1,point2,point3,point4;//经纬度数据
+    private PopupWindow pop;//popupwindow
+    private int width = 0;//item的宽度
+    private int height = 0;//屏幕的高度
+    @ViewInject(R.id.userName)
+    private TextView mUserName;//用户名
+    @ViewInject(R.id.date)
+    private TextView mDate;//日期
+    @ViewInject(R.id.time)
+    private TextView mTime;//时间
+    private Callback.Cancelable cancelable;//回调
+    @ViewInject(R.id.punchCard)
+    private TextView mPunchCard;//打卡
+    @ViewInject(R.id.stepNum)
+    private TextView mStepNum;//步数
+    private File uploadFile = null;//上传的文件
+    private SystemFunUtil imgUtil;//工具栏
+    private String imgPath;//图片的路径
+    private Marker marker = null;
+    private String note = "";//备注
+    private boolean isBind = false;//服务是否绑定
+    private TimerTask timerTask;//定时任务
+    private Timer timer;//定时器
+    private int firstNum = 0;//第几次进入范围中
+    private int leaveNum = 0;//第几次离开范围中
+    private PowerManager powerManager = null;
+
+    @Override
+    protected void initData() {
+        WindowManager wm = this.getWindowManager();
+        width = wm.getDefaultDisplay().getWidth();
+        height = wm.getDefaultDisplay().getHeight();
+        mContext = this;
+        mPunchCard.setOnClickListener(this);
+        if (http == null){
+            http = new HttpUtil(handler);
+        }
+        imgUtil = new SystemFunUtil(mContext);
+        uploadFile = imgUtil.createRootDirectory("upload");
+        progressDialog = RoundProgressDialog.createDialog(mContext);
+        getPersimmions();
+        mapUtil = new MapUtil(mContext,mMapView);
+        // 隐藏缩放控件
+        mapUtil.hidezoomView();
+
+        mUserName.setText(MyApplication.userModel.getUserName());
+        String[] split = MyApplication.userModel.getLastTime().split(" ");
+        String[] str = split[0].split("-");
+        mDate.setText(str[0]+"年"+str[1]+"月"+str[2]+"日");
+        mTime.setText(split[1].substring(0,5));
+
+        String latLng1 = MyApplication.userModel.getRange().split(";")[0];
+        String latLng2 = MyApplication.userModel.getRange().split(";")[1];
+        point1 = Double.parseDouble(latLng1.split(",")[1]);
+        point2 = Double.parseDouble(latLng1.split(",")[0]);
+        point3 = Double.parseDouble(latLng2.split(",")[1]);
+        point4 = Double.parseDouble(latLng2.split(",")[0]);
+
+        LatLng top = new LatLng(point1, point2);
+        LatLng left = new LatLng(point1, point4);
+        LatLng right = new LatLng(point3, point2);
+        LatLng bottom = new LatLng(point3, point4);
+
+//        mapUtil.drawRectangle(top,left,right,bottom);
+        powerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
+
+        locationService = MyApplication.locationService;
+        locationService.registerListener(mListener);
+        //注册监听
+        int type = getIntent().getIntExtra("from", 0);
+        if (type == 0) {
+            locationService.setLocationOption(locationService.getDefaultLocationClientOption());
+        } else if (type == 1) {
+            locationService.setLocationOption(locationService.getOption());
+        }
+        locationService.start();// 定位
+
+        /**
+         * 这里判断当前设备是否支持计步
+         */
+        if (StepCountCheckUtil.isSupportStepCountSensor(this)) {
+            setupService();
+        } else {
+            mStepNum.setText("0");
+        }
+
+        if (!GpsUtil.isGPSEnable(mContext)) {
+            GpsUtil.openGPSSettings(mContext);
+        }
+
+        progressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                if (!cancelable.isCancelled()){
+                    cancelable.cancel();
+                }
+                ImageUtil.deleteFolder(uploadFile);
+            }
+        });
+
+    }
+
+    /**
+     * 开启计步服务
+     */
+    private void setupService() {
+        Intent intent = new Intent(this, StepService.class);
+        isBind = bindService(intent, conn, Context.BIND_AUTO_CREATE);
+        startService(intent);
+    }
+
+    ServiceConnection conn = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, final IBinder service) {
+            /**
+             * 设置定时器，每个三秒钟去更新一次运动步数
+             */
+            timerTask = new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        Messenger messenger = new Messenger(service);
+                        Message msg = Message.obtain(null, RequestCode.MSG_FROM_CLIENT);
+                        msg.replyTo = new Messenger(handler);
+                        messenger.send(msg);
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+            timer = new Timer();
+            timer.schedule(timerTask, 0, 3000);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(PreferencesUtil.getDestroy(mContext,"isDestroy")){
+            uploadInfo(MyApplication.userModel.getUserID(),"3",PreferencesUtil.getStringData(mContext,"DestroyTime"));
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (isBind) {
+            this.unbindService(conn);
+        }
+        locationService.unregisterListener(mListener); //注销掉监听
+        locationService.stop(); //停止定位服务
+        PreferencesUtil.isDestroy(mContext,"isDestroy",true);
+        PreferencesUtil.setStringData(mContext,"DestroyTime",DateUtil.getSWAHDate());
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+    }
+
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what) {
+                case HttpUtil.SUCCESS:
+                    if (msg.arg1 == RequestCode.PUNCHCARD){
+                        if (progressDialog != null && progressDialog.isShowing()) {
+                            progressDialog.dismiss();// 关闭进度条
+                        }
+                        ImageUtil.deleteFolder(uploadFile);
+                        ResultModel model = (ResultModel) ParserUtil.jsonToObject(msg.obj.toString(),ResultModel.class);
+                        if ("1".equals(model.getResult())){
+                            ToastUtil.showBottomShort(mContext,"打卡成功");
+                        }else{
+                            ToastUtil.showBottomShort(mContext,model.getErrorMsg());
+                        }
+                    }
+                    if (msg.arg1 == RequestCode.UPLOADINFO){
+                        ResultModel model = (ResultModel) ParserUtil.jsonToObject(msg.obj.toString(),ResultModel.class);
+                        if ("1".equals(model.getResult())){
+                            if(PreferencesUtil.getDestroy(mContext,"isDestroy")){
+                                PreferencesUtil.isDestroy(mContext,"isDestroy",false);
+                                PreferencesUtil.setStringData(mContext,"DestroyTime","");
+                            }
+                        }
+                    }
+                    break;
+                case HttpUtil.EMPTY:
+                    break;
+                case HttpUtil.FAILURE:
+                    ToastUtil.showBottomShort(mContext, RequestCode.ERRORINFO);
+                    break;
+                case HttpUtil.LOADING:
+                    if (msg.arg1 == RequestCode.PUNCHCARD) {
+                        progressDialog.setMessage(msg.arg2 + "%");
+                    }
+                    break;
+                case RequestCode.MSG_FROM_SERVER:
+                    //记录运动步数
+                    int steps = msg.getData().getInt("steps");
+                    //设置的步数
+                    mStepNum.setText(String.valueOf(steps));
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
+    /**
+     * 上报
+     *
+     */
+    private void uploadData(String userID,String data,String note) {
+        if (MyApplication.getNetObject().isNetConnected()) {
+            http.sendGet(RequestCode.REPORTDATA, WebUrlConfig.reportData(userID, data,note));
+        } else {
+            ToastUtil.showBottomShort(mContext, RequestCode.NOLOGIN);
+        }
+    }
+
+    /**
+     * 打卡
+     */
+    private void punchCard(String userID,String lat,String lng,String imgPath) {
+//        lat = "41.853754";
+//        lng = "123.476113";
+        if (MyApplication.getNetObject().isNetConnected()) {
+            if (progressDialog != null && !progressDialog.isShowing()) {
+                progressDialog.setMessage("加载中...");
+                progressDialog.show();
+            }
+            RequestParams params = http.getParams(WebUrlConfig.punchCard());
+            params.addBodyParameter("userID",userID);
+            params.addBodyParameter("lat",lat);
+            params.addBodyParameter("lng",lng);
+            if (!TextUtils.isEmpty(imgPath)){
+                params.addBodyParameter("img", new File(imgPath));
+            }
+            cancelable = http.uploadFile(RequestCode.PUNCHCARD, params);
+        } else {
+            ToastUtil.showBottomShort(mContext, RequestCode.NOLOGIN);
+        }
+    }
+
+    /**
+     * 上报各种信息
+     *
+     */
+    private void uploadInfo(String userID,String type,String time) {
+        if (MyApplication.getNetObject().isNetConnected()) {
+            http.sendGet(RequestCode.UPLOADINFO, WebUrlConfig.uploadInfo(userID, type,time));
+        } else {
+            ToastUtil.showBottomShort(mContext, RequestCode.NOLOGIN);
+        }
+    }
+
+    @Override
+    public void onClick(View v) {
+        if (v == mPunchCard) {
+//            imgUtil.openCamera(SystemFunUtil.SYSTEM_IMAGE_PREPOSITION,101);
+            Intent intent = new Intent(mContext,PictureActivity.class);
+            startActivityForResult(intent,111);
+        }
+    }
+
+    /**
+     * 初始化pop数据
+     */
+    private void initPopupWindow() {
+        pop = new PopupWindow(this);
+        View customView = getLayoutInflater().inflate(R.layout.pop_layout, null);
+        TextView name = (TextView) customView.findViewById(R.id.name);
+        TextView time = (TextView) customView.findViewById(R.id.time);
+        name.setText(MyApplication.userModel.getUserName());
+        time.setText(MyApplication.userModel.getLastTime());
+        pop.setContentView(customView);
+        pop.setWidth(width / 3);
+        pop.setHeight(height/4);
+        pop.setFocusable(true);
+        pop.setBackgroundDrawable(new BitmapDrawable());
+        backgroundAlpha(1f);
+        Runnable r = new Runnable() {//默认弹出
+
+            @Override
+            public void run() {
+                if(null != mContext.getWindow().getDecorView().getWindowToken()) {
+//                    pop.showAsDropDown(mPopLayout);
+                    handler.removeCallbacks(this);
+                }else {
+                    handler.postDelayed(this, 5);
+                }
+            }
+        };
+        handler.post(r);
+    }
+
+    /**
+     * 设置添加屏幕的背景透明度
+     *
+     * @param bgAlpha
+     */
+    public void backgroundAlpha(float bgAlpha) {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.alpha = bgAlpha; //0.0-1.0
+        getWindow().setAttributes(lp);
+    }
+
+    /**
+     *	退出activity
+     */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK
+                && event.getAction() == KeyEvent.ACTION_DOWN) {
+
+            if ((System.currentTimeMillis() - exitTime) > 2000) {
+                Toast.makeText(this, "再按一次退出程序!",
+                        Toast.LENGTH_SHORT).show();
+                exitTime = System.currentTimeMillis();
+            } else {
+                //退出所有的activity
+                Intent intent = new Intent();
+                intent.setAction(BaseActivity.TAG_ESC_ACTIVITY);
+                sendBroadcast(intent);
+                finish();
+            }
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @TargetApi(23)
+    private void getPersimmions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ArrayList<String> permissions = new ArrayList<String>();
+            /***
+             * 定位权限为必须权限，用户如果禁止，则每次进入都会申请
+             */
+            // 定位精确位置
+            if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+            if(checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+                permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+            if(checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+                permissions.add(Manifest.permission.CAMERA);
+            }
+			/*
+			 * 读写权限和电话状态权限非必要权限(建议授予)只会申请一次，用户同意或者禁止，只会弹一次
+			 */
+            // 读写权限
+            if (addPermission(permissions, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                permissionInfo += "Manifest.permission.WRITE_EXTERNAL_STORAGE Deny \n";
+            }
+
+            if (permissions.size() > 0) {
+                requestPermissions(permissions.toArray(new String[permissions.size()]), 127);
+            }
+        }
+    }
+
+    @TargetApi(23)
+    private boolean addPermission(ArrayList<String> permissionsList, String permission) {
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) { // 如果应用没有获得对应权限,则添加到列表中,准备批量申请
+            if (shouldShowRequestPermissionRationale(permission)){
+                return true;
+            }else{
+                permissionsList.add(permission);
+                return false;
+            }
+
+        }else{
+            return true;
+        }
+    }
+
+    @TargetApi(23)
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    /**
+     * 定位结果回调，重写onReceiveLocation方法，
+     *
+     */
+    private BDLocationListener mListener = new BDLocationListener() {
+
+        @Override
+        public void onReceiveLocation(BDLocation location) {
+            if (null != location && location.getLocType() != BDLocation.TypeServerError) {
+                GpsModel model = new GpsModel();
+                String time = DateUtil.getSWAHDate();
+                model.setTime(time);
+                MyApplication.lat = location.getLatitude();
+                MyApplication.lng = location.getLongitude();
+                model.setLat(String.valueOf(MyApplication.lat));
+                model.setLng(String.valueOf(MyApplication.lng));
+                mGpsList.add(model);
+//                Log.e("result","time:"+time);
+//                Log.e("result","result:"+JSON.toJSONString(mGpsList));
+                StringBuffer sb = new StringBuffer(256);
+                sb.append("time : ");
+                sb.append(location.getTime());
+                sb.append("\nlocType : ");// 定位类型
+                sb.append(location.getLocType());
+                sb.append("\nlatitude : ");// 纬度
+                sb.append(location.getLatitude());
+                sb.append("\nlontitude : ");// 经度
+                sb.append(location.getLongitude());
+                if (location.getLocType() == BDLocation.TypeGpsLocation) {// GPS定位结果
+                    sb.append("\nspeed : ");
+                    sb.append(location.getSpeed());// 速度 单位：km/h
+                    sb.append("\nheight : ");
+                    sb.append(location.getAltitude());// 海拔高度 单位：米
+                    sb.append("\ndescribe : ");
+                    sb.append("gps定位成功");
+                }
+//                if (location.getLocType() == BDLocation.TypeNetWorkLocation) {// 网络定位结果
+//                    // 运营商信息
+//                    if (location.hasAltitude()) {// *****如果有海拔高度*****
+//                        sb.append("\nheight : ");
+//                        sb.append(location.getAltitude());// 单位：米
+//                    }
+//                    sb.append("\noperationers : ");// 运营商信息
+//                    sb.append(location.getOperators());
+//                    sb.append("\ndescribe : ");
+//                    sb.append("网络定位成功");
+//                }
+                Log.e("result",sb.toString());
+                if (!mapUtil.isZeroPoint(location.getLatitude(),location.getLongitude())){
+                    if (location.getLatitude()>=point1&&location.getLongitude()<=point4){//范围内上传信息
+                        firstNum+=1;
+                    }else{
+                        leaveNum+=1;
+                    }
+                }
+                if (firstNum==1){
+                    uploadInfo(MyApplication.userModel.getUserID(),"1",DateUtil.getSWAHDate());
+                }
+                if (leaveNum == 1){
+                    uploadInfo(MyApplication.userModel.getUserID(),"2",DateUtil.getSWAHDate());
+                }
+
+                if (count==0){
+                    if (!mapUtil.isZeroPoint(location.getLatitude(),location.getLongitude())){
+                        latLng = new LatLng(location.getLatitude(), location.getLongitude());
+//                        latLng = new LatLng(41.847545, 123.470702);
+                        if (marker ==null){
+                            marker = mapUtil.setMarkPoint(R.drawable.dw_07, latLng);
+                        }else{
+                            mapUtil.updateStatus(latLng,15);
+                        }
+                    }
+                }
+                count+=1;
+                if (count==Integer.parseInt(MyApplication.userModel.getUploadRate())/Integer.parseInt(MyApplication.userModel.getGpsRate())) {
+
+                    if (!mapUtil.isZeroPoint(location.getLatitude(),location.getLongitude())){
+                        if (location.getLatitude()>=point1&&location.getLongitude()<=point4){//范围内上传信息
+                            note = "";
+                        }else{
+//                            mGpsList.clear();
+                            note = "不在范围内";
+                        }
+                    }else {
+                        mGpsList.clear();
+                        note = "无法定位到自己位置";
+                    }
+                    uploadData(
+                            MyApplication.userModel.getUserID(), JSON.toJSONString(mGpsList),note
+                    );
+                    mGpsList.clear();
+                    count=0;
+                }
+            }
+        }
+    };
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == 111){
+            Log.e("result","path:"+data.getStringExtra("path"));
+            try{
+                String path = data.getStringExtra("path");
+
+                Bitmap bt = ImageUtil.getSmallBitmap(path);//压缩上传
+                FileNames names = new FileNames();
+                imgPath = ImageUtil.saveBitmap(uploadFile.getPath(),bt,names.getImageName());
+                Log.e("jack","path:"+ imgPath);
+                //删除原有图片
+                ImageUtil.deleteFilePath(path);
+
+                punchCard(MyApplication.userModel.getUserID(),
+                        String.valueOf( MyApplication.lat),
+                        String.valueOf( MyApplication.lng),
+                        imgPath);
+
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+        if (resultCode == Activity.RESULT_OK) {
+            if (requestCode == 101){//相机
+                try{
+                    File imgFile = imgUtil.getImgFile();
+
+                    Bitmap bt = ImageUtil.getSmallBitmap(imgFile.getPath());//压缩上传
+                    FileNames names = new FileNames();
+                    imgPath = ImageUtil.saveBitmap(uploadFile.getPath(),bt,names.getImageName());
+                    Log.e("jack","path:"+ imgPath);
+                    //删除原有图片
+                    ImageUtil.deleteFilePath(imgFile.getPath());
+
+                    punchCard(MyApplication.userModel.getUserID(),
+                            String.valueOf( MyApplication.lat),
+                            String.valueOf( MyApplication.lng),
+                            imgPath);
+
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+}

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/grey_dan"
+    tools:context="com.sitemap.railwaylocation.activity.LoginActivity"
+    >
+
+    <include
+        android:id="@+id/include"
+        layout="@layout/include_title_layout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent" />
+
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/_40px_in720p"
+        android:gravity="left|center_vertical"
+        android:text="用户名"
+        android:textColor="@color/black_dan"
+        android:textSize="@dimen/_28px_in720p"
+        app:layout_constraintBottom_toBottomOf="@+id/userName"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/userName" />
+
+    <EditText
+        android:id="@+id/userName"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/_70px_in720p"
+        android:layout_marginLeft="@dimen/_20px_in720p"
+        android:layout_marginRight="@dimen/_40px_in720p"
+        android:layout_marginTop="@dimen/_60px_in720p"
+        android:background="@color/white"
+        android:ellipsize="end"
+        android:gravity="left|center_vertical"
+        android:hint="请输入"
+        android:inputType="text"
+        android:maxLines="1"
+        android:padding="@dimen/_10px_in720p"
+        android:textColor="@color/black_dan"
+        android:textSize="@dimen/_28px_in720p"
+        app:layout_constraintLeft_toRightOf="@+id/textView"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/include" />
+
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="left|center_vertical"
+        android:text="密    码"
+        android:textColor="@color/black_dan"
+        android:textSize="@dimen/_28px_in720p"
+        app:layout_constraintBottom_toBottomOf="@+id/password"
+        app:layout_constraintLeft_toLeftOf="@+id/textView"
+        app:layout_constraintRight_toRightOf="@+id/textView"
+        app:layout_constraintTop_toTopOf="@+id/password" />
+
+    <EditText
+        android:id="@+id/password"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/_70px_in720p"
+        android:layout_marginTop="@dimen/_40px_in720p"
+        android:background="@color/white"
+        android:ellipsize="end"
+        android:gravity="left|center_vertical"
+        android:hint="请输入"
+        android:inputType="textPassword"
+        android:maxLines="1"
+        android:padding="@dimen/_10px_in720p"
+        android:textColor="@color/black_dan"
+        android:textSize="@dimen/_28px_in720p"
+        app:layout_constraintLeft_toLeftOf="@+id/userName"
+        app:layout_constraintRight_toRightOf="@+id/userName"
+        app:layout_constraintTop_toBottomOf="@+id/userName" />
+
+
+    <TextView
+        android:id="@+id/login"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/_80px_in720p"
+        android:layout_marginTop="@dimen/_100px_in720p"
+        android:background="@drawable/login_bg"
+        android:gravity="center"
+        android:text="登录"
+        android:textColor="@color/white"
+        app:layout_constraintLeft_toLeftOf="@+id/textView2"
+        app:layout_constraintRight_toRightOf="@+id/password"
+        app:layout_constraintTop_toBottomOf="@+id/password" />
+
+</android.support.constraint.ConstraintLayout>

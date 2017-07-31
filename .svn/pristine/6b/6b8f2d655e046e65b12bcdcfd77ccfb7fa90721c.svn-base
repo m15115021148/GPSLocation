@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.sitemap.railwaylocation.activity.MainActivity">
+
+    <ImageView
+        android:id="@+id/imageView2"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/_447px_in720p"
+        android:background="@drawable/wwll_01" />
+
+    <com.baidu.mapapi.map.MapView
+        android:id="@+id/bmapView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clickable="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/imageView2" />
+
+    <TextView
+        android:id="@+id/punchCard"
+        android:layout_width="@dimen/_204px_in720p"
+        android:layout_height="@dimen/_204px_in720p"
+        android:layout_marginTop="@dimen/_310px_in720p"
+        android:background="@drawable/wwll_08"
+        android:gravity="center"
+        android:text="打卡"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_35px_in720p"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="@+id/imageView2"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/imageView3"
+        android:layout_width="@dimen/_62px_in720p"
+        android:layout_height="@dimen/_62px_in720p"
+        android:layout_marginLeft="@dimen/_60px_in720p"
+        android:layout_marginTop="@dimen/_60px_in720p"
+        android:background="@drawable/wwll_04"
+        app:layout_constraintLeft_toLeftOf="@+id/imageView2"
+        app:layout_constraintTop_toTopOf="@+id/imageView2" />
+
+    <TextView
+        android:id="@+id/userName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/_20px_in720p"
+        android:text="陈梦"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_35px_in720p"
+        app:layout_constraintBottom_toBottomOf="@+id/imageView3"
+        app:layout_constraintLeft_toRightOf="@+id/imageView3"
+        app:layout_constraintTop_toTopOf="@+id/imageView3" />
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="@dimen/_40px_in720p"
+        android:text="用户名"
+        android:textColor="@color/grey"
+        android:textSize="@dimen/_28px_in720p"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/userName"
+        app:layout_constraintRight_toRightOf="@+id/imageView2"
+        app:layout_constraintTop_toTopOf="@+id/userName" />
+
+    <TextView
+        android:id="@+id/date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_10px_in720p"
+        android:text="2017年7月19日"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_40px_in720p"
+        app:layout_constraintLeft_toLeftOf="@+id/textView5"
+        app:layout_constraintTop_toBottomOf="@+id/textView5" />
+
+    <TextView
+        android:id="@+id/textView5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_50px_in720p"
+        android:text="登录时间"
+        android:textColor="@color/grey"
+        android:textSize="@dimen/_28px_in720p"
+        app:layout_constraintLeft_toLeftOf="@+id/imageView3"
+        app:layout_constraintTop_toBottomOf="@+id/imageView3" />
+
+    <TextView
+        android:id="@+id/time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/_20px_in720p"
+        android:text="12:34"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_35px_in720p"
+        app:layout_constraintBottom_toBottomOf="@+id/date"
+        app:layout_constraintLeft_toRightOf="@+id/date" />
+
+    <TextView
+        android:id="@+id/textView4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="@dimen/_60px_in720p"
+        android:text="今日步数"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_30px_in720p"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/imageView3" />
+
+    <TextView
+        android:id="@+id/stepNum"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_20px_in720p"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_32px_in720p"
+        app:layout_constraintRight_toRightOf="@+id/textView4"
+        app:layout_constraintTop_toBottomOf="@+id/textView4" />
+
+
+</android.support.constraint.ConstraintLayout>

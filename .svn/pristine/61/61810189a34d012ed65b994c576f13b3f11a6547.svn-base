@@ -1,0 +1,235 @@
+package com.sitemap.railwaylocation.activity;
+
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import com.sitemap.railwaylocation.R;
+import com.sitemap.railwaylocation.application.MyApplication;
+import com.sitemap.railwaylocation.config.RequestCode;
+import com.sitemap.railwaylocation.config.WebUrlConfig;
+import com.sitemap.railwaylocation.http.HttpUtil;
+import com.sitemap.railwaylocation.model.UserModel;
+import com.sitemap.railwaylocation.model.VersionModel;
+import com.sitemap.railwaylocation.util.DialogUtil;
+import com.sitemap.railwaylocation.util.LocationService;
+import com.sitemap.railwaylocation.util.ParserUtil;
+import com.sitemap.railwaylocation.util.PreferencesUtil;
+import com.sitemap.railwaylocation.util.ToastUtil;
+
+import org.xutils.http.RequestParams;
+import org.xutils.view.annotation.ContentView;
+import org.xutils.view.annotation.ViewInject;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+
+@ContentView(R.layout.activity_splash)
+public class SplashActivity extends BaseActivity implements Runnable{
+    public static SplashActivity mContext;//本类
+    private HttpUtil http;//网络请求
+    @ViewInject(R.id.img)
+    private ImageView img;//图片
+    private Bitmap bt = null;//加载图片类
+    private View viewDialog;//viewDialog
+    private MyApplication app;// application对象
+    private PackageManager pm;//获得PackageManager对象
+
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what){
+                case HttpUtil.SUCCESS:
+                    if (msg.arg1 == RequestCode.LOGIN){
+                        MyApplication.userModel = (UserModel) ParserUtil.jsonToObject(msg.obj.toString(), UserModel.class);
+                        if ("1".equals(MyApplication.userModel.getResult())){
+                            ToastUtil.showBottomLong(mContext,"登录成功");
+                            int time = Integer.parseInt(MyApplication.userModel.getGpsRate())*1000;
+                            MyApplication.gpsTime = time;
+                            MyApplication.locationService = new LocationService(getApplicationContext());
+
+                            Intent intent = new Intent(mContext,MainActivity.class);
+                            startActivity(intent);
+                            mContext.finish();
+                        }else{
+                            ToastUtil.showBottomLong(mContext,MyApplication.userModel.getErrorMsg());
+                        }
+                    }
+                    //版本更新
+                    if (msg.arg1 == RequestCode.UPDATEVERSION){
+                        final VersionModel model = (VersionModel) ParserUtil.jsonToObject(msg.obj.toString(), VersionModel.class);
+                        if ("1".equals(model.getResult())){//更新
+                            MyApplication.versionName = model.getVersion();
+                            try {
+                                MyApplication.downUrl = URLDecoder.decode(model.getUrl(),"utf-8").replace("\\","/");
+                            } catch (UnsupportedEncodingException e) {
+                                e.printStackTrace();
+                            }
+                            viewDialog = DialogUtil.customPromptDialog(mContext, "立即更新", "稍后再说",
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            Intent intent = new Intent(mContext, NotificationUpdateActivity.class);
+                                            startActivity(intent);
+                                            app.setDownload(true);
+                                            dialog.dismiss();
+                                        }
+                                    },
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            if (model.getIsforceupdate().equals("1")){//强制更新 不更新 退出应用
+                                                mContext.finish();
+                                            }else{
+                                                handler.sendEmptyMessage(1);
+                                            }
+                                            dialog.dismiss();
+                                        }
+                                    });
+                            TextView name = (TextView) viewDialog.findViewById(R.id.dialog_tv_txt);
+                            name.setText(
+                                    "发现新的版本，是否需要更新？"
+                                            +"\n\n\t\t"
+                                            +model.getContnet().replace(";","\n")
+                                            +"\n\n"
+                                            +"更新时间："
+                                            +model.getTime()
+                            );
+                        }else{
+                            handler.sendEmptyMessage(1);
+                        }
+                    }
+
+                    break;
+                case HttpUtil.EMPTY:
+                    finish();
+                    break;
+                case HttpUtil.FAILURE:
+                    ToastUtil.showBottomLong(mContext, RequestCode.ERRORINFO);
+                    finish();
+                    break;
+                case 1:
+                    if (PreferencesUtil.getFristLogin(mContext,"first")){//第一次登录
+                        Intent intent = new Intent(mContext,LoginActivity.class);
+                        startActivity(intent);
+                        mContext.finish();
+                    }else{
+                        Log.e("jack","mac:"+MyApplication.getDeviceID(mContext));
+                        String phone = PreferencesUtil.getStringData(mContext,"userName");
+                        String psw = PreferencesUtil.getStringData(mContext,"psw");
+                        getLogin(phone,psw,MyApplication.getDeviceID(mContext));
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
+    @Override
+    protected void initData() {
+        mContext = this;
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);//影藏系统状态栏
+        app = (MyApplication) getApplication();
+        pm = getPackageManager();
+        if (http == null){
+            http = new HttpUtil(handler);
+        }
+        if (bt == null)
+            bt = BitmapFactory.decodeResource(getResources(),R.drawable.qdy);
+        img.setImageBitmap(bt);
+        handler.postDelayed(this, 3000);
+    }
+
+    /**
+     * 获取登录信息
+     *
+     */
+    private void getLogin(String userName,String psw,String mac) {
+        if (MyApplication.getNetObject().isNetConnected()) {
+            RequestParams params = http.getParams(WebUrlConfig.login());
+            params.addBodyParameter("userName",userName);
+            params.addBodyParameter("userPwd",psw);
+            params.addBodyParameter("mac",mac);
+            http.sendPost(RequestCode.LOGIN,params);
+        } else {
+            ToastUtil.showBottomShort(mContext, RequestCode.NOLOGIN);
+        }
+    }
+
+    /**
+     * 版本更新
+     *
+     * @param versionCode
+     */
+    private void updateVersion(String versionCode) {
+        if (MyApplication.getNetObject().isNetConnected()) {
+            http.sendGet(RequestCode.UPDATEVERSION, WebUrlConfig.updateVersion(versionCode));
+        } else {
+            ToastUtil.showBottomShort(mContext, RequestCode.NOLOGIN);
+        }
+    }
+
+    /**
+     * 改写物理按键——返回的逻辑
+     */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            handler.removeCallbacks(this);
+            mContext.finish();
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(this);
+        if (bt != null) {
+            //释放图片内存
+            bt.recycle();
+            bt = null;
+        }
+        //强制回收
+        System.gc();
+    }
+
+    @Override
+    public void run() {
+        if (PreferencesUtil.getFristLogin(mContext,"first")) {//第一次登录
+            handler.sendEmptyMessage(1);
+        }else{
+            updateVersion(getVersion());
+        }
+    }
+
+    /**
+     * 获取版本号
+     *
+     * @return 当前应用的版本号
+     */
+    public String getVersion() {
+        try {
+            PackageInfo info = pm.getPackageInfo(getPackageName(), 0);
+            String version = info.versionName;
+            return version;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+}
